@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoreInventory — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #0a0a0f; --paper: #f5f3ee; --paper2: #ece9e1; --sidebar: #0f0f14;
+  --accent: #c8f53c; --accent2: #3cffa0; --muted: #6b6860; --border: #d4d0c8;
+  --card: #ffffff; --red: #ff4444; --orange: #ff9832; --blue: #3c8cff;
+  --sidebar-text: #a0a0a8; --sidebar-active: #c8f53c;
+  --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
+}
+body, a, button, select, input, textarea, .nav-item, tr { cursor: none !important; }
+body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); display: flex; min-height: 100vh; overflow-x: hidden; }
+
+/* CURSOR */
+.cursor { position: fixed; width: 12px; height: 12px; background: var(--accent); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%,-50%); }
+.cursor-ring { position: fixed; width: 36px; height: 36px; border: 1.5px solid var(--ink); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%,-50%); transition: transform 0.18s ease, width 0.3s, height 0.3s, border-color 0.2s; }
+body:has(a:hover) .cursor-ring, body:has(button:hover) .cursor-ring, body:has(.nav-item:hover) .cursor-ring, body:has(tr:hover) .cursor-ring { width: 56px; height: 56px; border-color: var(--accent); }
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px; min-height: 100vh; background: var(--sidebar);
+  display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; z-index: 50;
+  border-right: 1px solid #1a1a22;
+}
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #fff;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid #1a1a22;
+}
+.logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+.sidebar-nav { padding: 16px 0; flex: 1; }
+.nav-section { padding: 8px 24px 4px; font-size: 9px; color: #333; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 24px; transition: all 0.2s;
+  font-size: 13px; color: var(--sidebar-text); letter-spacing: 0.02em;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.04); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,245,60,0.06); }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 999px; }
+
+.sidebar-bottom { padding: 20px 24px; border-top: 1px solid #1a1a22; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; }
+.user-avatar { width: 32px; height: 32px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; color: var(--ink); }
+.user-name { font-size: 12px; color: #fff; }
+.user-role { font-size: 10px; color: #555; }
+
+/* MAIN */
+.main { margin-left: 240px; flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* TOPBAR */
+.topbar {
+  background: var(--paper); border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 40;
+}
+.topbar-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-search {
+  background: var(--paper2); border: 1px solid var(--border);
+  padding: 8px 16px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink);
+  outline: none; width: 240px; transition: border-color 0.2s;
+}
+.topbar-search:focus { border-color: var(--ink); }
+.topbar-search::placeholder { color: var(--muted); }
+.alert-chip {
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+  background: rgba(255,68,68,0.1); color: var(--red);
+  font-size: 11px; border: 1px solid rgba(255,68,68,0.2);
+  transition: background 0.2s;
+}
+.alert-chip:hover { background: rgba(255,68,68,0.2); }
+
+/* CONTENT AREAS */
+.content { padding: 32px; flex: 1; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* PAGE HEADER */
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; }
+.page-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -1px; }
+.page-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 10px 22px; border: none; transition: all 0.2s;
+}
+.btn-dark { background: var(--ink); color: var(--accent); }
+.btn-dark:hover { background: #1a1a22; transform: translateY(-1px); }
+.btn-accent { background: var(--accent); color: var(--ink); }
+.btn-accent:hover { opacity: 0.85; }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--paper2); }
+.btn-danger { background: var(--red); color: white; }
+.btn-sm { padding: 7px 14px; font-size: 11px; }
+.btn-success { background: var(--success); color: white; }
+
+/* CARDS */
+.card { background: var(--card); border: 1px solid var(--border); padding: 24px; }
+.card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+
+/* KANBAN CARDS */
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 28px; }
+.kpi-card {
+  background: var(--card); padding: 24px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 16px; min-height: 140px;
+  transition: all 0.2s; position: relative; overflow: hidden;
+  cursor: none !important;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.kpi-title-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.kpi-label { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; color: var(--ink); }
+.kpi-icon { font-size: 20px; opacity: 0.8; }
+.kpi-content { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
+.kpi-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 36px; line-height: 1; color: var(--accent); text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+.kpi-subtext { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; font-weight: 500; }
+.kpi-footer { display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: auto; }
+.kpi-action { font-size: 11px; font-weight: 500; color: var(--blue); background: none; border: none; padding: 4px 8px; border-radius: 4px; transition: background 0.2s; cursor: none !important; }
+.kpi-action:hover { background: rgba(60,140,255,0.1); }
+
+/* DASHBOARD GRID */
+.dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.dash-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 20px; }
+
+/* TABLE */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 16px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.15s; }
+tbody tr:hover td { background: var(--paper); }
+
+/* STATUS PILLS */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.pill-draft { background: rgba(60,140,255,0.1); color: var(--blue); }
+.pill-ready { background: rgba(200,245,60,0.15); color: #6a8000; }
+.pill-done  { background: rgba(100,100,100,0.1); color: var(--muted); }
+.pill-cancelled { background: rgba(255,68,68,0.1); color: var(--red); }
+.pill-receipt { background: rgba(60,255,160,0.12); color: #00a855; }
+.pill-delivery { background: rgba(255,152,50,0.12); color: var(--orange); }
+.pill-transfer { background: rgba(60,140,255,0.1); color: var(--blue); }
+.pill-adjustment { background: rgba(200,245,60,0.15); color: #6a8000; }
+
+/* FILTERS */
+.filter-bar { display: flex; gap: 0; margin-bottom: 0; flex-wrap: wrap; border: 1px solid var(--border); border-bottom: none; }
+.filter-btn {
+  padding: 10px 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+  border: none; background: transparent; color: var(--muted);
+  transition: all 0.2s; border-right: 1px solid var(--border);
+}
+.filter-btn:last-child { border-right: none; }
+.filter-btn.active { background: var(--ink); color: var(--accent); }
+.filter-btn:hover:not(.active) { background: var(--paper2); color: var(--ink); }
+
+/* FORM */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--paper); width: 100%; max-width: 640px; max-height: 90vh;
+  overflow-y: auto; padding: 36px;
+  transform: translateY(20px); transition: transform 0.2s;
+  border: 1px solid var(--border);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -1px; margin-bottom: 24px; }
+.modal-close { position: absolute; right: 20px; top: 20px; font-size: 20px; color: var(--muted); }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.form-group.full { grid-column: span 2; }
+.form-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.form-input, .form-select, .form-textarea {
+  background: var(--card); border: 1px solid var(--border);
+  padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--ink);
+  outline: none; width: 100%; transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--ink); }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+
+/* LINES TABLE */
+.lines-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.lines-table th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 8px; border-bottom: 1px solid var(--border); }
+.lines-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+.lines-table td input, .lines-table td select { width: 100%; background: var(--paper); border: 1px solid var(--border); padding: 6px 10px; font-family: 'DM Mono', monospace; font-size: 12px; outline: none; }
+.remove-line { color: var(--red); font-size: 16px; padding: 2px 8px; background: none; border: none; }
+
+/* STOCK BAR */
+.stock-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; width: 80px; display: inline-block; margin-left: 8px; vertical-align: middle; }
+.stock-bar-fill { height: 100%; border-radius: 2px; }
+
+/* TOAST */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--ink); color: var(--paper); padding: 14px 20px; min-width: 280px;
+  display: flex; align-items: center; gap: 12px; font-size: 13px;
+  transform: translateX(120%); transition: transform 0.3s ease;
+  border-left: 3px solid var(--accent);
+}
+.toast.show { transform: translateX(0); }
+.toast.error { border-left-color: var(--red); }
+.toast.success { border-left-color: var(--accent2); }
+
+/* LOW STOCK ROW */
+tr.low-stock td:nth-child(4) { color: var(--red); font-weight: 600; }
+
+/* LEDGER */
+.ledger-entry { display: flex; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.ledger-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.ledger-meta { flex: 1; }
+.ledger-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+.ledger-ref { font-size: 11px; color: var(--muted); }
+.ledger-qty { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; text-align: right; }
+.qty-pos { color: var(--success); }
+.qty-neg { color: var(--red); }
+.qty-zero { color: var(--muted); }
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 64px 0; color: var(--muted); }
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--ink); margin-bottom: 8px; }
+.empty-sub { font-size: 13px; }
+
+/* LOADING */
+.loading { display: flex; align-items: center; justify-content: center; padding: 48px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* DETAIL VIEW */
+.detail-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 24px; }
+.detail-ref { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; }
+.detail-meta { display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.detail-actions { margin-left: auto; display: flex; gap: 10px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+.detail-field-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.detail-field-value { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo"><span class="logo-dot"></span>CoreInventory</div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span>Dashboard</div>
+    <div class="nav-item" data-page="products"><span class="nav-icon">📦</span>Products</div>
+
+    <div class="nav-section">Operations</div>
+    <div class="nav-item" data-page="receipts"><span class="nav-icon">📥</span>Receipts</div>
+    <div class="nav-item" data-page="deliveries"><span class="nav-icon">📤</span>Deliveries</div>
+    <div class="nav-item" data-page="transfers"><span class="nav-icon">🔄</span>Transfers</div>
+    <div class="nav-item" data-page="adjustments"><span class="nav-icon">⚖️</span>Adjustments</div>
+
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" data-page="ledger"><span class="nav-icon">📋</span>Stock Ledger</div>
+    <div class="nav-item" data-page="warehouses"><span class="nav-icon">🏭</span>Warehouses</div>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="sidebar-user" style="justify-content: space-between; width: 100%;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="user-avatar">IM</div>
+        <div>
+          <div class="user-name">Inventory Mgr</div>
+          <div class="user-role">Admin</div>
+        </div>
+      </div>
+      <button onclick="logout()" style="background: none; border: none; color: var(--muted); cursor: none !important; padding: 4px; transition: color 0.2s;" title="Sign Out">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <input class="topbar-search" placeholder="Search products, ops..." id="globalSearch">
+      <div class="alert-chip" id="alertChip" onclick="navigate('products')">
+        🔔 <span id="alertCount">0</span> Low Stock
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">Good morning 👋</div><div class="page-sub">Here's your inventory snapshot</div></div>
+        <button class="btn btn-dark" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+      <div class="kpi-grid" id="dashKpis">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-title">Recent Operations <button class="btn btn-ghost btn-sm" onclick="navigate('receipts')">View All</button></div>
+          <div class="tbl-wrap" id="recentOpsTable"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Low Stock Alert 🔴</div>
+          <div id="lowStockList"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+      <div class="dash-grid-3">
+        <div class="card">
+          <div class="card-title">Stock by Category</div>
+          <div id="categoryStats"></div>
+        </div>
+        <div class="card" style="grid-column: span 2">
+          <div class="card-title">Recent Ledger Activity</div>
+          <div id="recentLedger"></div>
+        </div>
+      </div>
+    </div>
+    <!-- PRODUCTS PAGE -->
+    <div class="page" id="page-products">
+      <div class="page-header">
+        <div><div class="page-title">Products</div><div class="page-sub" id="productCount">Loading...</div></div>
+        <button class="btn btn-dark" onclick="openProductModal()">+ New Product</button>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterProducts(this,'')">All</button>
+        <button class="filter-btn" onclick="filterProducts(this,'low')">⚠️ Low Stock</button>
+      </div>
+      <div class="card" style="border-top:none">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Stock</th><th>Reorder At</th><th>Unit</th><th>Warehouse</th><th></th></tr></thead>
+            <tbody id="productsTable"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECEIPTS PAGE -->
+    <div class="page" id="page-receipts">
+      <div class="page-header">
+        <div><div class="page-title">Receipts</div><div class="page-sub">Incoming stock from vendors</div></div>
+        <button class="btn btn-dark" onclick="openOpModal('receipt')">+ New Receipt</button>
+      </div>
+      <div id="receiptsContent"></div>
+    </div>
+
+    <!-- DELIVERIES PAGE -->
+    <div class="page" id="page-deliveries">
+      <div class="page-header">
+        <div><div class="page-title">Deliveries</div><div class="page-sub">Outgoing stock to customers</div></div>
+        <button class="btn btn-dark" onclick="openOpModal('delivery')">+ New Delivery</button>
+      </div>
+      <div id="deliveriesContent"></div>
+    </div>
+
+    <!-- TRANSFERS PAGE -->
+    <div class="page" id="page-transfers">
+      <div class="page-header">
+        <div><div class="page-title">Internal Transfers</div><div class="page-sub">Move stock between warehouses</div></div>
+        <button class="btn btn-dark" onclick="openOpModal('transfer')">+ New Transfer</button>
+      </div>
+      <div id="transfersContent"></div>
+    </div>
+
+    <!-- ADJUSTMENTS PAGE -->
+    <div class="page" id="page-adjustments">
+      <div class="page-header">
+        <div><div class="page-title">Stock Adjustments</div><div class="page-sub">Fix physical count discrepancies</div></div>
+        <button class="btn btn-dark" onclick="openOpModal('adjustment')">+ New Adjustment</button>
+      </div>
+      <div id="adjustmentsContent"></div>
+    </div>
+
+    <!-- LEDGER PAGE -->
+    <div class="page" id="page-ledger">
+      <div class="page-header">
+        <div><div class="page-title">Stock Ledger</div><div class="page-sub">Immutable audit trail of all movements</div></div>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Product</th><th>SKU</th><th>Type</th><th>Reference</th><th>Change</th><th>Balance After</th><th>Warehouse</th></tr></thead>
+            <tbody id="ledgerTable"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- WAREHOUSES PAGE -->
+    <div class="page" id="page-warehouses">
+      <div class="page-header">
+        <div><div class="page-title">Warehouses</div><div class="page-sub">Locations & stock summary</div></div>
+        <button class="btn btn-dark" onclick="openWarehouseModal()">+ New Warehouse</button>
+      </div>
+      <div id="warehousesGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;"></div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- MODALS -->
+<!-- Product Modal -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="position:relative">
+    <div class="modal-title" id="productModalTitle">New Product</div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">SKU *</label><input class="form-input" id="fSku" placeholder="e.g. SKU-0001"></div>
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="fName" placeholder="Product name"></div>
+      <div class="form-group"><label class="form-label">Category</label>
+        <select class="form-select" id="fCategory"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Unit</label>
+        <select class="form-select" id="fUnit">
+          <option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option>
+          <option value="L">L</option><option value="m">m</option><option value="box">box</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Reorder Level</label><input class="form-input" id="fReorder" type="number" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Initial Stock</label><input class="form-input" id="fInitial" type="number" min="0" placeholder="0"></div>
+      <div class="form-group full"><label class="form-label">Warehouse</label>
+        <select class="form-select" id="fWarehouse"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group full"><label class="form-label">Description</label><textarea class="form-textarea" id="fDesc" placeholder="Optional notes"></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('productModal')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Operation Modal -->
+<div class="modal-overlay" id="opModal">
+  <div class="modal" style="position:relative;max-width:700px">
+    <div class="modal-title" id="opModalTitle">New Operation</div>
+    <input type="hidden" id="fOpType">
+    <div class="form-grid">
+      <div class="form-group" id="fSourceWHGroup"><label class="form-label" id="fSourceWHLabel">Source Warehouse</label>
+        <select class="form-select" id="fSourceWH"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group" id="fDestWHGroup"><label class="form-label">Destination Warehouse</label>
+        <select class="form-select" id="fDestWH"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group" id="fPartnerGroup"><label class="form-label" id="fPartnerLabel">Vendor / Customer</label>
+        <input class="form-input" id="fPartner" placeholder="Name">
+      </div>
+      <div class="form-group"><label class="form-label">Scheduled Date</label>
+        <input class="form-input" id="fSchedDate" type="date">
+      </div>
+      <div class="form-group full"><label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="fOpNotes" placeholder="Optional"></textarea>
+      </div>
+    </div>
+    <div class="card-title" style="margin-bottom:12px;border-top:1px solid var(--border);padding-top:16px">
+      Product Lines <button class="btn btn-ghost btn-sm" onclick="addOpLine()">+ Add Line</button>
+    </div>
+    <table class="lines-table">
+      <thead><tr><th>Product</th><th>Quantity</th><th></th></tr></thead>
+      <tbody id="opLines"></tbody>
+    </table>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('opModal')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveOperation()">Create Operation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Warehouse Modal -->
+<div class="modal-overlay" id="warehouseModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title">New Warehouse</div>
+    <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="fWhName" placeholder="Warehouse name"></div>
+    <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="fWhLocation" placeholder="e.g. Building A"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('warehouseModal')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveWarehouse()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = '/api';
+let state = { products: [], warehouses: [], categories: [], currentProductId: null };
+
+// ───────────────────────────── AUTH ─────────────────────────────
+function logout() {
+  localStorage.removeItem('ci_token');
+  localStorage.removeItem('ci_user');
+  window.location.href = '/login';
+}
+
+// CURSOR INIT
+const cursorEl=document.getElementById('cursor'),ringEl=document.getElementById('cursorRing');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+(function anim(){cursorEl.style.left=mx+'px';cursorEl.style.top=my+'px';rx+=(mx-rx)*0.12;ry+=(my-ry)*0.12;ringEl.style.left=rx+'px';ringEl.style.top=ry+'px';requestAnimationFrame(anim);})();
+
+// ───────────────────────────── UTILS ─────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'API error');
+  return data;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type === 'success' ? '✓' : '✕'}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.classList.add('show'), 10);
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3000);
+}
+
+function fmt(date) { return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function fmtNum(n) { return parseFloat(n || 0).toLocaleString(); }
+
+function pill(type, text) { return `<span class="pill pill-${type}">${text}</span>`; }
+function statusPill(status) { return `<span class="pill pill-${status}">${status}</span>`; }
+function typePill(type) { const labels={receipt:'Receipt',delivery:'Delivery',transfer:'Transfer',adjustment:'Adjustment'}; return `<span class="pill pill-${type}">${labels[type]||type}</span>`; }
+
+// ───────────────────────────── NAVIGATION ─────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+
+  const titles = { dashboard:'Dashboard', products:'Products', receipts:'Receipts', deliveries:'Deliveries', transfers:'Internal Transfers', adjustments:'Stock Adjustments', ledger:'Stock Ledger', warehouses:'Warehouses' };
+  document.getElementById('topbarTitle').textContent = titles[page] || page;
+
+  // Load page data
+  if (page === 'dashboard') loadDashboard();
+  else if (page === 'products') loadProducts();
+  else if (['receipts','deliveries','transfers','adjustments'].includes(page)) loadOperations(page.replace('ies','y').replace('ments','ment').replace('fers','fer').replace('ipts','ipt'));
+  else if (page === 'ledger') loadLedger();
+  else if (page === 'warehouses') loadWarehouses();
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.page));
+});
+
+// ───────────────────────────── DASHBOARD ─────────────────────────────
+async function loadDashboard() {
+  try {
+    const { data } = await apiFetch('/dashboard');
+    const { kpis, stock_by_category, low_stock_products, recent_operations, recent_ledger } = data;
+
+    // Update alert chip
+    document.getElementById('alertCount').textContent = kpis.low_stock;
+
+    // Kanban Cards (Odoo Style)
+    document.getElementById('dashKpis').innerHTML = `
+      <div class="kpi-card" onclick="navigate('receipts')">
+        <div class="kpi-title-row">
+          <div class="kpi-label">Receipts</div>
+          <div class="kpi-icon">📥</div>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">${kpis.pending_receipts || 0}</div>
+          <div class="kpi-subtext">To Process</div>
+        </div>
+        <div class="kpi-footer">
+          <button class="kpi-action" onclick="event.stopPropagation(); navigate('receipts')">View Operations</button>
+        </div>
+      </div>
+      
+      <div class="kpi-card" onclick="navigate('transfers')">
+        <div class="kpi-title-row">
+          <div class="kpi-label">Internal Transfers</div>
+          <div class="kpi-icon">🔄</div>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">${kpis.pending_transfers || 0}</div>
+          <div class="kpi-subtext">To Process</div>
+        </div>
+        <div class="kpi-footer">
+          <button class="kpi-action" onclick="event.stopPropagation(); navigate('transfers')">View Operations</button>
+        </div>
+      </div>
+
+      <div class="kpi-card" onclick="navigate('deliveries')">
+        <div class="kpi-title-row">
+          <div class="kpi-label">Delivery Orders</div>
+          <div class="kpi-icon">📤</div>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-value">${kpis.pending_deliveries || 0}</div>
+          <div class="kpi-subtext">To Process</div>
+        </div>
+        <div class="kpi-footer">
+          <button class="kpi-action" onclick="event.stopPropagation(); navigate('deliveries')">View Operations</button>
+        </div>
+      </div>
+    `;
+
+    // Recent operations table
+    document.getElementById('recentOpsTable').innerHTML = recent_operations.length ? `
+      <table><thead><tr><th>Reference</th><th>Type</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${recent_operations.map(o => `
+        <tr onclick="navigate('${o.type}s')">
+          <td style="font-weight:500">${o.reference}</td>
+          <td>${typePill(o.type)}</td>
+          <td>${statusPill(o.status)}</td>
+          <td style="color:var(--muted)">${fmt(o.created_at)}</td>
+        </tr>`).join('')}
+      </tbody></table>` : '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No operations yet</div></div>';
+
+    // Low stock list
+    document.getElementById('lowStockList').innerHTML = low_stock_products.length ? low_stock_products.map(p => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:13px;font-weight:500">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted)">${p.sku} · ${p.warehouse_name||'No warehouse'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--red)">${fmtNum(p.current_stock)} ${p.unit}</div>
+          <div style="font-size:10px;color:var(--muted)">min: ${fmtNum(p.reorder_level)}</div>
+        </div>
+      </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:16px 0">All products are well stocked ✓</div>';
+
+    // Category stats - Donut Chart
+    const catContainer = document.getElementById('categoryStats');
+    if (!stock_by_category.length) {
+      catContainer.innerHTML = '<div style="color:var(--muted);font-size:13px">No data</div>';
+    } else {
+      catContainer.innerHTML = '';
+      const catChart = new ApexCharts(catContainer, {
+        series: stock_by_category.map(c => parseFloat(c.total) || 0),
+        labels: stock_by_category.map(c => c.name),
+        chart: { type: 'donut', height: 280, fontFamily: "'DM Mono', monospace", animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+        colors: ['#c8f53c', '#3cffa0', '#3c8cff', '#ff9832', '#ff4444', '#a0a0a8'],
+        stroke: { show: true, colors: 'var(--card)', width: 2 },
+        dataLabels: { enabled: false },
+        plotOptions: { pie: { donut: { size: '75%', labels: { show: true, name: { fontFamily: "'Syne', sans-serif", fontWeight: 700, color: 'var(--ink)' }, value: { fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '24px', color: 'var(--ink)' }, total: { show: true, label: 'Total Stock', color: 'var(--muted)', fontSize: '10px' } } } } },
+        legend: { position: 'bottom', labels: { colors: 'var(--muted)' }, markers: { radius: 2 } },
+        tooltip: { theme: 'light', style: { fontSize: '12px' } }
+      });
+      catChart.render();
+    }
+
+    // Ledger - Area Chart
+    const ledgerContainer = document.getElementById('recentLedger');
+    if (!recent_ledger.length) {
+      ledgerContainer.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px">No ledger entries yet</div>';
+    } else {
+      ledgerContainer.innerHTML = '';
+      // Group ledger entries by date for the chart
+      const dates = [...new Set(recent_ledger.map(l => new Date(l.created_at).toLocaleDateString()))].reverse();
+      const posData = dates.map(d => recent_ledger.filter(l => new Date(l.created_at).toLocaleDateString() === d && l.qty_change > 0).reduce((sum, l) => sum + parseFloat(l.qty_change), 0));
+      const negData = dates.map(d => recent_ledger.filter(l => new Date(l.created_at).toLocaleDateString() === d && l.qty_change < 0).reduce((sum, l) => sum + Math.abs(parseFloat(l.qty_change)), 0));
+      
+      const ledgerChart = new ApexCharts(ledgerContainer, {
+        series: [{ name: 'Stock In', data: posData }, { name: 'Stock Out', data: negData }],
+        chart: { type: 'area', height: 280, fontFamily: "'DM Mono', monospace", toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+        colors: ['#22c55e', '#ef4444'],
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2 },
+        xaxis: { categories: dates, labels: { style: { colors: 'var(--muted)', fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { labels: { style: { colors: 'var(--muted)', fontSize: '10px' }, formatter: (val) => val.toFixed(0) } },
+        grid: { borderColor: 'var(--border)', strokeDashArray: 4, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
+        legend: { position: 'top', horizontalAlign: 'right', labels: { colors: 'var(--muted)' }, markers: { radius: 2 } },
+        tooltip: { theme: 'light', x: { show: true }, y: { formatter: (val) => val + ' items' } }
+      });
+      ledgerChart.render();
+    }
+
+  } catch (err) { 
+    toast('Failed to load dashboard: ' + err.message, 'error'); 
+    const errHtml = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error Loading Data</div><div class="empty-sub">${err.message}</div></div>`;
+    document.getElementById('dashKpis').innerHTML = errHtml;
+    document.getElementById('recentOpsTable').innerHTML = errHtml;
+    document.getElementById('lowStockList').innerHTML = errHtml;
+    document.getElementById('categoryStats').innerHTML = errHtml;
+    document.getElementById('recentLedger').innerHTML = errHtml;
+  }
+}
+
+// ───────────────────────────── PRODUCTS ─────────────────────────────
+async function loadProducts(filter = '') {
+  try {
+    let url = '/products';
+    if (filter === 'low') url += '?low_stock=true';
+    const { data, total } = await apiFetch(url);
+    state.products = data;
+    document.getElementById('productCount').textContent = `${total} product${total !== 1 ? 's' : ''} total`;
+
+    const tbody = document.getElementById('productsTable');
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">No products found</div><div class="empty-sub">Add your first product</div></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(p => {
+      const pct = p.reorder_level > 0 ? Math.min(100, parseFloat(p.current_stock) / parseFloat(p.reorder_level) * 100) : 100;
+      const isLow = parseFloat(p.current_stock) <= parseFloat(p.reorder_level);
+      return `<tr class="${isLow ? 'low-stock' : ''}">
+        <td style="font-weight:500;color:var(--muted)">${p.sku}</td>
+        <td style="font-weight:500">${p.name}</td>
+        <td>${p.category_name||'—'}</td>
+        <td>
+          <span style="font-family:'Syne',sans-serif;font-weight:700;color:${isLow?'var(--red)':'inherit'}">${fmtNum(p.current_stock)}</span>
+          <div class="stock-bar-wrap"><div class="stock-bar-fill" style="width:${pct}%;background:${isLow?'var(--red)':'var(--accent)'}"></div></div>
+        </td>
+        <td>${fmtNum(p.reorder_level)}</td>
+        <td>${p.unit}</td>
+        <td>${p.warehouse_name||'—'}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="editProduct('${p.id}');event.stopPropagation()">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}');event.stopPropagation()">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) { 
+    toast('Failed to load products: ' + err.message, 'error'); 
+    document.getElementById('productsTable').innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error</div><div class="empty-sub">${err.message}</div></div></td></tr>`;
+  }
+}
+
+function filterProducts(btn, filter) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadProducts(filter);
+}
+
+async function openProductModal(id = null) {
+  state.currentProductId = id;
+  await loadFormDropdowns();
+  if (id) {
+    document.getElementById('productModalTitle').textContent = 'Edit Product';
+    const { data } = await apiFetch('/products/' + id);
+    document.getElementById('fSku').value = data.sku;
+    document.getElementById('fName').value = data.name;
+    document.getElementById('fCategory').value = data.category_id || '';
+    document.getElementById('fUnit').value = data.unit;
+    document.getElementById('fReorder').value = data.reorder_level;
+    document.getElementById('fInitial').value = data.current_stock;
+    document.getElementById('fWarehouse').value = data.warehouse_id || '';
+    document.getElementById('fDesc').value = data.description || '';
+  } else {
+    document.getElementById('productModalTitle').textContent = 'New Product';
+    ['fSku','fName','fReorder','fInitial','fDesc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fUnit').value = 'pcs';
+    document.getElementById('fCategory').value = '';
+    document.getElementById('fWarehouse').value = '';
+  }
+  document.getElementById('productModal').classList.add('open');
+}
+
+function editProduct(id) { openProductModal(id); }
+
+async function saveProduct() {
+  const body = {
+    sku: document.getElementById('fSku').value.trim(),
+    name: document.getElementById('fName').value.trim(),
+    category_id: document.getElementById('fCategory').value || null,
+    unit: document.getElementById('fUnit').value,
+    reorder_level: parseFloat(document.getElementById('fReorder').value) || 0,
+    initial_stock: parseFloat(document.getElementById('fInitial').value) || 0,
+    warehouse_id: document.getElementById('fWarehouse').value || null,
+    description: document.getElementById('fDesc').value.trim() || null
+  };
+  if (!body.sku || !body.name) { toast('SKU and Name are required', 'error'); return; }
+  try {
+    if (state.currentProductId) {
+      await apiFetch('/products/' + state.currentProductId, { method: 'PUT', body });
+      toast('Product updated ✓');
+    } else {
+      await apiFetch('/products', { method: 'POST', body });
+      toast('Product created ✓');
+    }
+    closeModal('productModal');
+    loadProducts();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product? This cannot be undone.')) return;
+  try {
+    await apiFetch('/products/' + id, { method: 'DELETE' });
+    toast('Product deleted');
+    loadProducts();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ───────────────────────────── OPERATIONS ─────────────────────────────
+const OP_TYPE_MAP = { receipt:'receipt', delivery:'delivery', transfer:'transfer', adjustment:'adjustment' };
+const OP_PAGE_MAP = { receipt:'receipts', delivery:'deliveries', transfer:'transfers', adjustment:'adjustments' };
+
+async function loadOperations(type) {
+  const pageId = OP_PAGE_MAP[type] + 'Content';
+  const container = document.getElementById(pageId);
+  if (!container) return;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const { data } = await apiFetch('/operations?type=' + type);
+    if (!data.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No ${type}s yet</div><div class="empty-sub">Create your first ${type}</div></div>`;
+      return;
+    }
+    container.innerHTML = `
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Reference</th><th>Contact</th><th>Scheduled Date</th><th>Source Document</th><th>Status</th><th></th></tr></thead>
+            <tbody>${data.map(o => `
+              <tr onclick="viewOperation('${o.id}','${type}')" style="cursor:none!important">
+                <td style="font-weight:600;color:var(--ink)">${o.reference}</td>
+                <td>${o.partner || o.source_warehouse_name || o.dest_warehouse_name || '—'}</td>
+                <td style="color:var(--muted)">${o.scheduled_date ? fmt(o.scheduled_date) : fmt(o.created_at)}</td>
+                <td style="color:var(--blue)">${o.source_document || '—'}</td>
+                <td>${statusPill(o.status)}</td>
+                <td>
+                  ${o.status !== 'done' && o.status !== 'cancelled' ? `<button class="btn btn-success btn-sm" onclick="validateOp('${o.id}','${type}');event.stopPropagation()" style="cursor:none!important">✓ Validate</button>` : ''}
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (err) { 
+    toast('Failed to load: ' + err.message, 'error'); 
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error</div><div class="empty-sub">${err.message}</div></div>`;
+  }
+}
+
+async function validateOp(id, type) {
+  if (!confirm('Validate this operation? Stock will be updated.')) return;
+  try {
+    const { message } = await apiFetch('/operations/' + id + '/validate', { method: 'POST' });
+    toast(message + ' ✓');
+    loadOperations(type);
+    loadDashboard();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function viewOperation(id, type) {
+  try {
+    const { data } = await apiFetch('/operations/' + id);
+    const container = document.getElementById(OP_PAGE_MAP[type] + 'Content');
+    const isDraft = data.status === 'draft';
+    const isReady = data.status === 'ready';
+    const isDone = data.status === 'done';
+    
+    container.innerHTML = `
+      <div class="card" style="margin-bottom:20px; padding:0; overflow:hidden">
+        <!-- Odoo Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--border); background:var(--paper)">
+          <div style="display:flex; gap:8px">
+            ${!isDone && data.status !== 'cancelled' ? `<button class="btn btn-success" onclick="validateOp('${data.id}','${type}')">Validate</button>` : ''}
+            <button class="btn btn-ghost" onclick="window.print()">Print</button>
+            ${!isDone ? `<button class="btn btn-ghost" style="color:var(--muted)">Cancel</button>` : ''}
+            <button class="btn btn-ghost" onclick="loadOperations('${type}')" style="margin-left:12px">← Back</button>
+          </div>
+          
+          <!-- Odoo StatusBar Pipeline -->
+          <div style="display:flex; padding:4px; background:var(--card); border:1px solid var(--border); border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted)">
+            <div style="padding:6px 16px; ${isDraft ? 'background:var(--accent);color:var(--ink)' : (isReady || isDone ? 'color:var(--ink)' : '')}">Draft</div>
+            <div style="padding:6px 16px; border-left:1px solid var(--border); ${!isDraft && !isReady && !isDone ? 'background:var(--accent);color:var(--ink)' : (isReady || isDone ? 'color:var(--ink)' : '')}">Waiting</div>
+            <div style="padding:6px 16px; border-left:1px solid var(--border); ${isReady ? 'background:var(--accent);color:var(--ink)' : (isDone ? 'color:var(--ink)' : '')}">Ready</div>
+            <div style="padding:6px 16px; border-left:1px solid var(--border); ${isDone ? 'background:var(--success);color:white' : ''}">Done</div>
+          </div>
+        </div>
+
+        <!-- Form Body -->
+        <div style="padding:24px">
+          <div style="font-size:24px; font-family:'Syne',sans-serif; font-weight:800; margin-bottom:24px">${data.reference}</div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-bottom:32px">
+            <!-- Left Column -->
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px">
+                <span style="font-size:12px; font-weight:600; color:var(--ink)">Receive From / Delivery Address</span>
+                <span style="font-size:13px; color:var(--blue)">${data.partner || data.source_warehouse_name || data.dest_warehouse_name || '—'}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px">
+                <span style="font-size:12px; font-weight:600; color:var(--ink)">Operation Type</span>
+                <span style="font-size:13px">${typePill(data.type)}</span>
+              </div>
+            </div>
+            
+            <!-- Right Column -->
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px">
+                <span style="font-size:12px; font-weight:600; color:var(--ink)">Scheduled Date</span>
+                <span style="font-size:13px">${data.scheduled_date ? fmt(data.scheduled_date) : fmt(data.created_at)}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px">
+                <span style="font-size:12px; font-weight:600; color:var(--ink)">Source Document</span>
+                <span style="font-size:13px; color:var(--blue)">${data.source_document || '—'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabs & Lines -->
+          <div style="border-bottom:1px solid var(--border); margin-bottom:16px; display:flex; gap:24px">
+            <div style="font-size:13px; font-weight:700; color:var(--ink); padding-bottom:12px; border-bottom:2px solid var(--ink)">Operations</div>
+            <div style="font-size:13px; font-weight:600; color:var(--muted); padding-bottom:12px">Additional Info</div>
+            <div style="font-size:13px; font-weight:600; color:var(--muted); padding-bottom:12px">Note</div>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; text-align:left">
+              <thead>
+                <tr>
+                  <th style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase">Product</th>
+                  <th style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; text-align:right">Demand</th>
+                  <th style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; text-align:right">Done</th>
+                  <th style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase">Unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.lines.map(l => `
+                  <tr>
+                    <td style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:13px; color:var(--blue)">${l.product_name}</td>
+                    <td style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right">${fmtNum(l.qty_demand)}</td>
+                    <td style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:13px; text-align:right; color:${l.qty_done > 0 ? 'var(--ink)' : 'var(--muted)'}">${l.qty_done > 0 ? fmtNum(l.qty_done) : ''}</td>
+                    <td style="padding:12px 8px; border-bottom:1px solid var(--border); font-size:13px">${l.unit}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function openOpModal(type) {
+  await loadFormDropdowns();
+  await loadProducts('');
+  document.getElementById('fOpType').value = type;
+
+  const titles = { receipt:'New Receipt', delivery:'New Delivery', transfer:'New Internal Transfer', adjustment:'New Stock Adjustment' };
+  document.getElementById('opModalTitle').textContent = titles[type];
+
+  // Show/hide fields based on type
+  const destGroup = document.getElementById('fDestWHGroup');
+  const partnerGroup = document.getElementById('fPartnerGroup');
+  const sourceLabel = document.getElementById('fSourceWHLabel');
+  const partnerLabel = document.getElementById('fPartnerLabel');
+
+  if (type === 'receipt') {
+    destGroup.style.display = 'flex'; partnerGroup.style.display = 'flex';
+    sourceLabel.textContent = 'Destination Warehouse'; partnerLabel.textContent = 'Vendor / Supplier';
+  } else if (type === 'delivery') {
+    destGroup.style.display = 'none'; partnerGroup.style.display = 'flex';
+    sourceLabel.textContent = 'Source Warehouse'; partnerLabel.textContent = 'Customer';
+  } else if (type === 'transfer') {
+    destGroup.style.display = 'flex'; partnerGroup.style.display = 'none';
+    sourceLabel.textContent = 'From Warehouse';
+  } else if (type === 'adjustment') {
+    destGroup.style.display = 'none'; partnerGroup.style.display = 'none';
+    sourceLabel.textContent = 'Warehouse';
+  }
+
+  // Reset form
+  ['fSourceWH','fDestWH','fPartner','fSchedDate','fOpNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('opLines').innerHTML = '';
+  addOpLine();
+
+  document.getElementById('opModal').classList.add('open');
+}
+
+function addOpLine() {
+  const tbody = document.getElementById('opLines');
+  const idx = tbody.children.length;
+  const opts = state.products.map(p => `<option value="${p.id}">${p.name} (${p.sku}) — ${fmtNum(p.current_stock)} ${p.unit}</option>`).join('');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select class="form-select" style="min-width:240px"><option value="">— Select Product —</option>${opts}</select></td>
+    <td><input type="number" min="0.01" step="0.01" placeholder="Qty" style="width:100px"></td>
+    <td><button class="remove-line" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+async function saveOperation() {
+  const type = document.getElementById('fOpType').value;
+  const lines = [...document.querySelectorAll('#opLines tr')].map(tr => ({
+    product_id: tr.querySelector('select')?.value,
+    qty_demand: parseFloat(tr.querySelector('input')?.value) || 0
+  })).filter(l => l.product_id && l.qty_demand > 0);
+
+  if (!lines.length) { toast('Add at least one product line', 'error'); return; }
+
+  const sourceWH = document.getElementById('fSourceWH').value;
+  const destWH = document.getElementById('fDestWH').value;
+
+  let body = { type, lines, partner: document.getElementById('fPartner').value || null, notes: document.getElementById('fOpNotes').value || null, scheduled_date: document.getElementById('fSchedDate').value || null };
+
+  if (type === 'receipt') { body.dest_warehouse_id = sourceWH || null; }
+  else { body.source_warehouse_id = sourceWH || null; body.dest_warehouse_id = destWH || null; }
+
+  try {
+    await apiFetch('/operations', { method: 'POST', body });
+    toast(`${type.charAt(0).toUpperCase() + type.slice(1)} created ✓`);
+    closeModal('opModal');
+    loadOperations(type);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ───────────────────────────── LEDGER ─────────────────────────────
+async function loadLedger() {
+  try {
+    const { data } = await apiFetch('/ledger?limit=100');
+    const tbody = document.getElementById('ledgerTable');
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No ledger entries</div></div></td></tr>`; return; }
+    tbody.innerHTML = data.map(l => `
+      <tr>
+        <td style="color:var(--muted)">${fmt(l.created_at)}</td>
+        <td style="font-weight:500">${l.product_name}</td>
+        <td style="color:var(--muted)">${l.sku}</td>
+        <td>${typePill(l.move_type)}</td>
+        <td>${l.reference||'—'}</td>
+        <td style="font-family:'Syne',sans-serif;font-weight:700;color:${l.qty_change>0?'var(--success)':l.qty_change<0?'var(--red)':'var(--muted)'}">${l.qty_change>=0?'+':''}${fmtNum(l.qty_change)}</td>
+        <td style="font-weight:600">${fmtNum(l.qty_after)}</td>
+        <td>${l.warehouse_name||'—'}</td>
+      </tr>`).join('');
+  } catch (err) { 
+    toast('Failed to load ledger: ' + err.message, 'error'); 
+    document.getElementById('ledgerTable').innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error</div><div class="empty-sub">${err.message}</div></div></td></tr>`;
+  }
+}
+
+// ───────────────────────────── WAREHOUSES ─────────────────────────────
+async function loadWarehouses() {
+  try {
+    const { data } = await apiFetch('/warehouses');
+    state.warehouses = data;
+    const grid = document.getElementById('warehousesGrid');
+    grid.innerHTML = data.map(w => `
+      <div class="card">
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:6px">${w.name}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:20px">📍 ${w.location||'No location set'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--paper2);padding:16px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Products</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:28px">${w.product_count}</div>
+          </div>
+          <div style="background:var(--paper2);padding:16px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Total Stock</div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:28px">${fmtNum(w.total_stock)}</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch (err) { 
+    toast('Failed to load warehouses: ' + err.message, 'error'); 
+    document.getElementById('warehousesGrid').innerHTML = `<div class="empty-state" style="grid-column: span 3"><div class="empty-icon">⚠️</div><div class="empty-title">Error</div><div class="empty-sub">${err.message}</div></div>`;
+  }
+}
+
+function openWarehouseModal() { document.getElementById('fWhName').value = ''; document.getElementById('fWhLocation').value = ''; document.getElementById('warehouseModal').classList.add('open'); }
+
+async function saveWarehouse() {
+  const name = document.getElementById('fWhName').value.trim();
+  const location = document.getElementById('fWhLocation').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  try {
+    await apiFetch('/warehouses', { method: 'POST', body: { name, location } });
+    toast('Warehouse created ✓');
+    closeModal('warehouseModal');
+    loadWarehouses();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ───────────────────────────── HELPERS ─────────────────────────────
+async function loadFormDropdowns() {
+  try {
+    const [cats, whs] = await Promise.all([apiFetch('/categories'), apiFetch('/warehouses')]);
+    state.categories = cats.data; state.warehouses = whs.data;
+    const catOpts = cats.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const whOpts = whs.data.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+    document.getElementById('fCategory').innerHTML = '<option value="">— Select —</option>' + catOpts;
+    document.getElementById('fWarehouse').innerHTML = '<option value="">— Select —</option>' + whOpts;
+    document.getElementById('fSourceWH').innerHTML = '<option value="">— Select —</option>' + whOpts;
+    document.getElementById('fDestWH').innerHTML = '<option value="">— Select —</option>' + whOpts;
+  } catch (err) { /* fail silently */ }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+
+// Global search
+document.getElementById('globalSearch').addEventListener('input', e => {
+  const q = e.target.value.trim();
+  if (q.length > 1) {
+    navigate('products');
+    loadProductsSearch(q);
+  }
+});
+
+async function loadProductsSearch(q) {
+  try {
+    const { data, total } = await apiFetch('/products?search=' + encodeURIComponent(q));
+    state.products = data;
+    document.getElementById('productCount').textContent = `${total} result${total !== 1 ? 's' : ''} for "${q}"`;
+    const tbody = document.getElementById('productsTable');
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">No products match "${q}"</td></tr>`; return; }
+    tbody.innerHTML = data.map(p => {
+      const isLow = parseFloat(p.current_stock) <= parseFloat(p.reorder_level);
+      return `<tr class="${isLow?'low-stock':''}">
+        <td style="font-weight:500;color:var(--muted)">${p.sku}</td>
+        <td style="font-weight:500">${p.name}</td>
+        <td>${p.category_name||'—'}</td>
+        <td><span style="font-family:'Syne',sans-serif;font-weight:700;color:${isLow?'var(--red)':'inherit'}">${fmtNum(p.current_stock)}</span></td>
+        <td>${fmtNum(p.reorder_level)}</td><td>${p.unit}</td><td>${p.warehouse_name||'—'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editProduct('${p.id}')">Edit</button></td>
+      </tr>`;
+    }).join('');
+  } catch(err) {}
+}
+
+// ───────────────────────────── INIT ─────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>
