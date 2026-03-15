@@ -19,13 +19,15 @@ function otpExpiry() {
 
 // Send OTP email
 async function sendOTP(contact, otp) {
+
   console.log(`📧 OTP for ${contact}: ${otp}`);
 
   try {
+
     await resend.emails.send({
       from: 'CoreInventory <onboarding@resend.dev>',
       to: process.env.RESEND_TEST_EMAIL || contact,
-      subject: `Your CoreInventory OTP`,
+      subject: 'Your CoreInventory OTP',
       html: `
       <div style="font-family:monospace;max-width:480px;margin:auto;background:#0a0a0f;color:#f5f3ee;padding:40px;">
         <h2>CoreInventory</h2>
@@ -41,10 +43,11 @@ async function sendOTP(contact, otp) {
   } catch (err) {
     console.error("Email error:", err.message);
   }
+
 }
 
 
-// Create tables if not exists
+// Create tables
 async function initUsersTable() {
 
   await pool.query(`
@@ -74,8 +77,6 @@ async function initUsersTable() {
   `);
 
 }
-
-initUsersTable().catch(console.error);
 
 
 //////////////////////////////////////
@@ -209,43 +210,6 @@ router.post('/verify-otp', async (req,res)=>{
 
 
 //////////////////////////////////////
-// GET CURRENT USER
-//////////////////////////////////////
-
-router.get('/me', async (req,res)=>{
-
-  const token = req.headers.authorization?.replace("Bearer ","");
-
-  if (!token)
-    return res.status(401).json({ success:false,error:"No token" });
-
-  try {
-
-    const result = await pool.query(
-
-      `SELECT u.id,u.name,u.email,u.phone,u.role
-       FROM otp_tokens t
-       JOIN users u
-       ON (u.email=t.contact OR u.phone=t.contact)
-       WHERE t.otp=$1
-       AND t.purpose='token'
-       AND t.expires_at>NOW()`,
-       [token]
-    );
-
-    if (!result.rows.length)
-      return res.status(401).json({ success:false,error:"Invalid session" });
-
-    res.json({ success:true,user:result.rows[0] });
-
-  } catch(err){
-    res.status(500).json({ success:false,error:err.message });
-  }
-
-});
-
-
-//////////////////////////////////////
 // LOGOUT
 //////////////////////////////////////
 
@@ -266,3 +230,4 @@ router.post('/logout', async (req,res)=>{
 
 
 module.exports = router;
+module.exports.initUsersTable = initUsersTable;
