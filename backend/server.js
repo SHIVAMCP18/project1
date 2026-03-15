@@ -7,11 +7,13 @@ const morgan = require('morgan');
 const path = require('path');
 
 const { initDB } = require('./db');
+const { initUsersTable } = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* -------------------- Middleware -------------------- */
+
+/* Middleware */
 
 app.use(
   helmet({
@@ -26,86 +28,84 @@ app.use(
   })
 );
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "*"
-  })
-);
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*"
+}));
 
 app.use(express.json());
 app.use(morgan("dev"));
 
-/* -------------------- Static Frontend -------------------- */
 
-app.get('/login', (req, res) =>
-  res.sendFile(path.join(__dirname, '../frontend/login.html'))
-);
+/* Static frontend */
 
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.get('/login', (req,res)=>{
+  res.sendFile(path.join(__dirname,'../frontend/login.html'));
+});
 
-/* -------------------- Routes -------------------- */
+app.use(express.static(path.join(__dirname,'../frontend')));
+
+
+/* Routes */
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/operations', require('./routes/operations'));
 app.use('/api', require('./routes/misc'));
 
-/* -------------------- Health Check -------------------- */
 
-app.get('/api/health', (req, res) => {
+/* Health check */
+
+app.get('/api/health',(req,res)=>{
   res.json({
-    status: 'ok',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
+    status:'ok',
+    version:'1.0.0',
+    timestamp:new Date().toISOString()
   });
 });
 
-/* -------------------- 404 Handler -------------------- */
 
-app.use('/api/*', (req, res) => {
+/* 404 */
+
+app.use('/api/*',(req,res)=>{
   res.status(404).json({
-    success: false,
-    error: 'Endpoint not found'
+    success:false,
+    error:'Endpoint not found'
   });
 });
 
-/* -------------------- Error Handler -------------------- */
 
-app.use((err, req, res, next) => {
+/* Error handler */
+
+app.use((err,req,res,next)=>{
   console.error(err.stack);
 
   res.status(500).json({
-    success: false,
-    error: 'Internal server error'
+    success:false,
+    error:'Internal server error'
   });
 });
 
-/* -------------------- Start Server -------------------- */
+
+/* Start server */
 
 const start = async () => {
+
   try {
+
     await initDB();
+    await initUsersTable();
 
-    app.listen(PORT, () => {
-      console.log(`🚀 CoreInventory API running at http://localhost:${PORT}`);
-
-      console.log("📦 Endpoints:");
-      console.log("GET  /api/health");
-      console.log("GET  /api/dashboard");
-      console.log("GET  /api/products");
-      console.log("POST /api/products");
-      console.log("GET  /api/operations");
-      console.log("POST /api/operations");
-      console.log("POST /api/operations/:id/validate");
-      console.log("GET  /api/warehouses");
-      console.log("GET  /api/categories");
-      console.log("GET  /api/ledger");
+    app.listen(PORT,()=>{
+      console.log(`🚀 CoreInventory API running on port ${PORT}`);
     });
 
-  } catch (err) {
-    console.error("Failed to start server:", err.message);
+  } catch(err) {
+
+    console.error("Failed to start server:",err.message);
     process.exit(1);
+
   }
+
 };
 
 start();
