@@ -55,7 +55,14 @@ router.post('/verify-otp', async (req, res) => {
   if (!contact || !otp) return res.status(400).json({ success: false, error: 'Contact and OTP are required' });
   try {
     if (otp.toString().length !== 6) return res.status(401).json({ success: false, error: 'Please enter a 6-digit code.' });
-    await pool.query('UPDATE otp_tokens SET used = true WHERE contact = $1 AND used = false', [contact]);
+    // Validate the OTP — must match, not be used, and not be expired
+    const otpResult = await pool.query(
+      "SELECT id FROM otp_tokens WHERE contact = $1 AND otp = $2 AND used = false AND expires_at > NOW() AND purpose IN ('login','signup') ORDER BY created_at DESC LIMIT 1",
+      [contact, otp.toString()]
+    );
+    if (!otpResult.rows.length) return res.status(401).json({ success: false, error: 'Invalid or expired OTP. Please try again.' });
+    // Mark OTP as used
+    await pool.query('UPDATE otp_tokens SET used = true WHERE id = $1', [otpResult.rows[0].id]);
     let userResult = await pool.query('UPDATE users SET is_verified = true, last_login = NOW() WHERE email = $1 OR phone = $1 RETURNING id, name, email, phone, role', [contact]);
     if (!userResult.rows.length) return res.status(404).json({ success: false, error: 'User not found. Please sign up first.' });
     const user = userResult.rows[0];
@@ -69,7 +76,14 @@ router.get('/me', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ success: false, error: 'No token provided' });
   try {
-    const result = await pool.query("SELECT u.id, u.name, u.email, u.phone, u.role FROM otp_tokens t JOIN users u ON (u.email = t.contact OR u.phone = t.contact) WHERE t.otp = $1 AND t.purpose = 'token' AND t.expires_at > NOW() LIMIT 1", [token]);
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.email, u.phone, u.role
+       FROM otp_tokens t
+       JOIN users u ON (u.email = t.contact OR u.phone = t.contact)
+       WHERE t.otp = $1 AND t.purpose = 'token' AND t.used = false AND t.expires_at > NOW()
+       LIMIT 1`,
+      [token]
+    );
     if (!result.rows.length) return res.status(401).json({ success: false, error: 'Invalid or expired session' });
     res.json({ success: true, user: result.rows[0] });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -89,23 +103,3 @@ router.get('/users', async (req, res) => {
 });
 
 module.exports = router;
-
-// GET /api/auth/me - verify token
-router.get('/me', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ success: false, error: 'No token' });
-  try {
-    const result = await pool.query(
-      `SELECT u.id, u.name, u.email, u.phone, u.role
-       FROM otp_tokens t
-       JOIN users u ON (u.email = t.contact OR u.phone = t.contact)
-       WHERE t.otp = $1 AND t.purpose = 'token' AND t.used = false AND t.expires_at > NOW()
-       LIMIT 1`,
-      [token]
-    );
-    if (!result.rows.length) return res.status(401).json({ success: false, error: 'Invalid token' });
-    res.json({ success: true, user: result.rows[0] });
-  } catch(err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
