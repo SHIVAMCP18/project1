@@ -402,7 +402,7 @@ body:has(button:hover) .cursor-ring, body:has(a:hover) .cursor-ring { width: 48p
 </div><!-- /layout -->
 
 <script>
-const API = '/api/auth';
+const API = 'https://project1-856v.onrender.com/api/auth';
 let currentUser = null;
 let countdownTimers = {};
 
@@ -658,7 +658,7 @@ function shakeOTP(form) { const wrap=document.getElementById(form+'OtpWrap'); wr
   const token = localStorage.getItem('ci_token');
   if (token) {
     try {
-      const res = await fetch('/api/auth/me', { headers:{'Authorization':'Bearer '+token} });
+      const res = await fetch('https://project1-856v.onrender.com/api/auth/me', { headers:{'Authorization':'Bearer '+token} });
       const data = await res.json();
       if (data.success) { window.location.href = '/dashboard.html'; return; }
     } catch(e){}
