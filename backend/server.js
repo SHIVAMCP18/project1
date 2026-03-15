@@ -19,7 +19,20 @@ app.use(helmet({
   },
   crossOriginResourcePolicy: { policy: 'cross-origin' } 
 }));
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+const allowedOrigins = [
+  (process.env.FRONTEND_URL || '').replace(/\/$/, ''), // strip trailing slash
+  'http://localhost:3000',
+  'http://localhost:5500',
+].filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (e.g. curl, Render health checks)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin.replace(/\/$/, ''))) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
