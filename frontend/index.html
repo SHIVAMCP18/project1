@@ -632,7 +632,7 @@ tr.low-stock td:nth-child(4) { color: var(--red); font-weight: 600; }
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-const API='/api';
+const API='https://project1-856v.onrender.com/api';
 let state={products:[],warehouses:[],categories:[],currentProductId:null};
 let currentUser = null;
 
@@ -695,7 +695,7 @@ async function checkAuth(){
   const token = getToken();
   if (!token) { renderNav(); return false; }
   try {
-    const res = await fetch('/api/auth/me', { headers:{'Authorization':'Bearer '+token} });
+    const res = await fetch('https://project1-856v.onrender.com/api/auth/me', { headers:{'Authorization':'Bearer '+token} });
     const data = await res.json();
     if (data.success) {
       currentUser = data.user;
@@ -715,8 +715,8 @@ async function checkAuth(){
 async function loadLiveStats(){
   try {
     const [products, warehouses] = await Promise.all([
-      fetch('/api/products').then(r=>r.json()),
-      fetch('/api/warehouses').then(r=>r.json())
+      fetch('https://project1-856v.onrender.com/api/products').then(r=>r.json()),
+      fetch('https://project1-856v.onrender.com/api/warehouses').then(r=>r.json())
     ]);
     const skuEl = document.getElementById('liveSkuCount');
     const whEl = document.getElementById('liveWhCount');
